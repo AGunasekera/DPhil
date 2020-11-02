@@ -1,6 +1,6 @@
 import numpy as np
 from math import sqrt, factorial
-from pyscf import gto, scf, ao2mo, fci
+from pyscf import fci#, gto, scf, ao2mo
 
 # class CSF:
 #     def __init__(self, mol_, mf_, spin, projSpin, d):
@@ -211,52 +211,52 @@ def gen_CSF(S, M, dvec):
     return CSF
 
 
-# (Trivial) 2-electron example: STO-3G H2
+# # (Trivial) 2-electron example: STO-3G H2
 
-bohr = 0.529177249
+# bohr = 0.529177249
 
-H2sep = 1.605 * bohr
+# H2sep = 1.605 * bohr
 
-mol = gto.Mole()
-mol.verbose = 1
-mol.atom = 'H 0 0 0; H 0 0 ' + str(H2sep)
-mol.basis = 'sto-3g'
-mol.spin = 0
-mol.build()
+# mol = gto.Mole()
+# mol.verbose = 1
+# mol.atom = 'H 0 0 0; H 0 0 ' + str(H2sep)
+# mol.basis = 'sto-3g'
+# mol.spin = 0
+# mol.build()
 
-Enuc = mol.energy_nuc()
+# Enuc = mol.energy_nuc()
 
-mf = scf.ROHF(mol)
-mf.kernel()
+# mf = scf.ROHF(mol)
+# mf.kernel()
 
-h1 = mf.mo_coeff.T.dot(mf.get_hcore()).dot(mf.mo_coeff)
-eri = ao2mo.kernel(mol, mf.mo_coeff)
+# h1 = mf.mo_coeff.T.dot(mf.get_hcore()).dot(mf.mo_coeff)
+# eri = ao2mo.kernel(mol, mf.mo_coeff)
 
-cisolver = fci.FCI(mol, mf.mo_coeff)
+# cisolver = fci.FCI(mol, mf.mo_coeff)
 
-CSF = gen_CSF(0, 0, [0,3])
-print(CSF)
-print(fci.spin_square(CSF, 2, (1,1)))
+# CSF = gen_CSF(0, 0, [0,3])
+# print(CSF)
+# print(fci.spin_square(CSF, 2, (1,1)))
 
-CSF = gen_CSF(0, 0, [1,2])
-print(CSF)
-print(fci.spin_square(CSF, 2, (1,1)))
+# CSF = gen_CSF(0, 0, [1,2])
+# print(CSF)
+# print(fci.spin_square(CSF, 2, (1,1)))
 
-CSF = gen_CSF(0, 0, [3,0])
-print(CSF)
-print(fci.spin_square(CSF, 2, (1,1)))
+# CSF = gen_CSF(0, 0, [3,0])
+# print(CSF)
+# print(fci.spin_square(CSF, 2, (1,1)))
 
-CSF = gen_CSF(1, 1, [1,1])
-print(CSF)
-print(fci.spin_square(CSF, 2, (2,0)))
+# CSF = gen_CSF(1, 1, [1,1])
+# print(CSF)
+# print(fci.spin_square(CSF, 2, (2,0)))
 
-CSF = gen_CSF(1, 0, [1,1])
-print(CSF)
-print(fci.spin_square(CSF, 2, (1,1)))
+# CSF = gen_CSF(1, 0, [1,1])
+# print(CSF)
+# print(fci.spin_square(CSF, 2, (1,1)))
 
-CSF = gen_CSF(1, -1, [1,1])
-print(CSF)
-print(fci.spin_square(CSF, 2, (0,2)))
+# CSF = gen_CSF(1, -1, [1,1])
+# print(CSF)
+# print(fci.spin_square(CSF, 2, (0,2)))
 
 # Twoelec03Singlet = gen_CSF(0, 0, [0,3])
 # Twoelec30Singlet = gen_CSF(0, 0, [3,0])
@@ -279,45 +279,45 @@ print(fci.spin_square(CSF, 2, (0,2)))
 # print(fci.spin_op.spin_square(TwoelecTriplet0, 2, 2))
 # print(fci.spin_op.spin_square(TwoelecTriplet_1, 2, (0,2)))
 
-# 3-electron example: linear H3
+# # 3-electron example: linear H3
 
-mol = gto.Mole()
-mol.verbose = 1
-mol.atom = 'H 0 0 0; H 0 0 ' + str(H2sep) + '; H 0 0 ' + str(2 * H2sep)
-mol.basis = 'sto-3g'
-mol.spin = 1
-mol.build()
+# mol = gto.Mole()
+# mol.verbose = 1
+# mol.atom = 'H 0 0 0; H 0 0 ' + str(H2sep) + '; H 0 0 ' + str(2 * H2sep)
+# mol.basis = 'sto-3g'
+# mol.spin = 1
+# mol.build()
 
-Enuc = mol.energy_nuc()
+# Enuc = mol.energy_nuc()
 
-mf = scf.ROHF(mol)
-mf.kernel()
+# mf = scf.ROHF(mol)
+# mf.kernel()
 
-h1 = mf.mo_coeff.T.dot(mf.get_hcore()).dot(mf.mo_coeff)
-eri = ao2mo.kernel(mol, mf.mo_coeff)
+# h1 = mf.mo_coeff.T.dot(mf.get_hcore()).dot(mf.mo_coeff)
+# eri = ao2mo.kernel(mol, mf.mo_coeff)
 
-cisolver = fci.FCI(mol, mf.mo_coeff)
+# cisolver = fci.FCI(mol, mf.mo_coeff)
 
-CSF = gen_CSF(1.5, 1.5, [1,1,1])
-print(CSF)
-print(fci.spin_square(CSF, 3, (3,0)))
+# CSF = gen_CSF(1.5, 1.5, [1,1,1])
+# print(CSF)
+# print(fci.spin_square(CSF, 3, (3,0)))
 
-CSF = gen_CSF(1.5, 0.5, [1,1,1])
-print(CSF)
-print(fci.spin_square(CSF, 3, (2,1)))
+# CSF = gen_CSF(1.5, 0.5, [1,1,1])
+# print(CSF)
+# print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = gen_CSF(0.5, 0.5, [0,1,3])
-print(CSF)
-print(fci.spin_square(CSF, 3, (2,1)))
+# CSF = gen_CSF(0.5, 0.5, [0,1,3])
+# print(CSF)
+# print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = gen_CSF(0.5, 0.5, [1,0,3])
-print(CSF)
-print(fci.spin_square(CSF, 3, (2,1)))
+# CSF = gen_CSF(0.5, 0.5, [1,0,3])
+# print(CSF)
+# print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = gen_CSF(0.5, 0.5, [1,2,1])
-print(CSF)
-print(fci.spin_square(CSF, 3, (2,1)))
+# CSF = gen_CSF(0.5, 0.5, [1,2,1])
+# print(CSF)
+# print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = gen_CSF(0.5, 0.5, [1,1,2])
-print(CSF)
-print(fci.spin_square(CSF, 3, (2,1)))
+# CSF = gen_CSF(0.5, 0.5, [1,1,2])
+# print(CSF)
+# print(fci.spin_square(CSF, 3, (2,1)))
