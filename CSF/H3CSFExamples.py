@@ -1,5 +1,5 @@
 from pyscf import gto, scf, ao2mo, fci
-import CSF as CSFmod
+import UGA
 
 # 3-electron example: linear H3
 
@@ -24,26 +24,32 @@ eri = ao2mo.kernel(mol, mf.mo_coeff)
 
 cisolver = fci.FCI(mol, mf.mo_coeff)
 
-CSF = CSFmod.gen_CSF(1.5, 1.5, [1,1,1])
+CSF = UGA.gen_CSF(1.5, 1.5, 3, [1,1,1])
 print(CSF)
+print(cisolver.energy(h1, eri, CSF, 3, (3,0)) + Enuc)
 print(fci.spin_square(CSF, 3, (3,0)))
 
-CSF = CSFmod.gen_CSF(1.5, 0.5, [1,1,1])
+CSF = UGA.gen_CSF(1.5, 0.5, 3, [1,1,1])
 print(CSF)
+print(cisolver.energy(h1, eri, CSF, 3, (2,1)) + Enuc)
 print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = CSFmod.gen_CSF(0.5, 0.5, [0,1,3])
+CSF = UGA.gen_CSF(0.5, 0.5, 3, [0,1,3])
 print(CSF)
+print(cisolver.energy(h1, eri, CSF, 3, (2,1)) + Enuc)
 print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = CSFmod.gen_CSF(0.5, 0.5, [1,0,3])
+CSF = UGA.gen_CSF(0.5, 0.5, 3, [1,0,3])
 print(CSF)
+print(cisolver.energy(h1, eri, CSF, 3, (2,1)) + Enuc)
 print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = CSFmod.gen_CSF(0.5, 0.5, [1,2,1])
+CSF = UGA.gen_CSF(0.5, 0.5, 3, [1,2,1])
 print(CSF)
+print(cisolver.energy(h1, eri, CSF, 3, (2,1)) + Enuc)
 print(fci.spin_square(CSF, 3, (2,1)))
 
-CSF = CSFmod.gen_CSF(0.5, 0.5, [1,1,2])
+CSF = UGA.gen_CSF(0.5, 0.5, 3, [1,1,2])
 print(CSF)
+print(cisolver.energy(h1, eri, CSF, 3, (2,1)) + Enuc)
 print(fci.spin_square(CSF, 3, (2,1)))
