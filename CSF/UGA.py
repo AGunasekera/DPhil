@@ -261,25 +261,25 @@ def doubletstate_S_0_2(state, norbs, nelec, k, r):
     return UG_generator_pq(state, norbs, nelec, k, r)
 
 def doubletstate_D_1_1(state, norbs, nelec, a, b, r, k):
-    return sqrt(2 / (1 + (if a == b))) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, b, r, k) + UG_2particle_replacement(state, norbs, nelec, a, b, k, r))
+    return sqrt(2 / (1 + int(a == b))) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, b, r, k) + UG_2particle_replacement(state, norbs, nelec, a, b, k, r))
 
 def doubletstate_D_1_1prime(state, norbs, nelec, a, b, r, k):
     return sqrt(2 / 3) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, b, r, k) - UG_2particle_replacement(state, norbs, nelec, a, b, k, r))
 
 def doubletstate_D_1_2(state, norbs, nelec, a, k, r, s):
-    return sqrt(2 / (1 + (if r == s))) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, k, r, s) + UG_2particle_replacement(state, norbs, nelec, a, k, r, s))
+    return sqrt(2 / (1 + int(r == s))) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, k, r, s) + UG_2particle_replacement(state, norbs, nelec, a, k, r, s))
 
 def doubletstate_D_1_2prime(state, norbs, nelec, a, k, r, s):
     return sqrt(2 / 3) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, k, r, s) - UG_2particle_replacement(state, norbs, nelec, a, k, s, r))
 
 def doubletstate_D_1_3(state, norbs, nelec, a, b, r, s):
-    return (1 / sqrt((1 + (if a == b)) * (1 + (if a == b)))) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, b, r, s) + UG_2particle_replacement(state, norbs, nelec, a, b, s, r))
+    return (1 / sqrt((1 + int(a == b)) * (1 + int(a == b)))) * (1 / 2) * (UG_2particle_replacement(state, norbs, nelec, a, b, r, s) + UG_2particle_replacement(state, norbs, nelec, a, b, s, r))
 
 def doubletstate_D_2_3(state, norbs, nelec, a, b, r, s, k):
-    return (2 / sqrt(3 * (1 + (if r == s)))) * (1 / 2) * (1 / 2) * ((UG_triple_generator_product(state, norbs, nelec, k, a, b, r, s, k) - UG_triple_generator_product(state, norbs, nelec, k, b, a, r, s, k)) + (UG_triple_generator_product(state, norbs, nelec, k, a, b, s, r, k) - UG_triple_generator_product(state, norbs, nelec, k, b, a, s, r, k)))
+    return (2 / sqrt(3 * (1 + int(r == s)))) * (1 / 2) * (1 / 2) * ((UG_triple_generator_product(state, norbs, nelec, k, a, b, r, s, k) - UG_triple_generator_product(state, norbs, nelec, k, b, a, r, s, k)) + (UG_triple_generator_product(state, norbs, nelec, k, a, b, s, r, k) - UG_triple_generator_product(state, norbs, nelec, k, b, a, s, r, k)))
 
 def doubletstate_D_2_3prime(state, norbs, nelec, a, b, r, s, k):
-    return (2 / sqrt(3 * (1 + (if a == b)))) * (1 / 2) * (1 / 2) * ((UG_triple_generator_product(state, norbs, nelec, k, a, b, r, s, k) - UG_triple_generator_product(state, norbs, nelec, k, a, b, s, r, k)) + (UG_triple_generator_product(state, norbs, nelec, k, b, a, r, s, k) - UG_triple_generator_product(state, norbs, nelec, k, b, a, s, r, k)))
+    return (2 / sqrt(3 * (1 + int(a == b)))) * (1 / 2) * (1 / 2) * ((UG_triple_generator_product(state, norbs, nelec, k, a, b, r, s, k) - UG_triple_generator_product(state, norbs, nelec, k, a, b, s, r, k)) + (UG_triple_generator_product(state, norbs, nelec, k, b, a, r, s, k) - UG_triple_generator_product(state, norbs, nelec, k, b, a, s, r, k)))
 
 def doubletstate_S_0_3(state, norbs, nelec, a, r):
     return (1 / sqrt(2)) * UG_generator_pq(state, norbs, nelec, a, r)
