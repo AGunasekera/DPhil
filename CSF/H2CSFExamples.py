@@ -59,7 +59,7 @@ print(fci.spin_square(CSF, 2, (1,1)))
 
 CSF = UGA.gen_CSF(1, -1, 2, [1,1])
 print(CSF)
-print(cisolver.energy(h1, eri, CSF, 2, (1,1)) + Enuc)
+print(cisolver.energy(h1, eri, CSF, 2, (0,2)) + Enuc)
 print(fci.spin_square(CSF, 2, (0,2)))
 
 
