@@ -67,6 +67,13 @@ print(fci.spin_square(CSF, 2, (0,2)))
 # Dissociation
 H2sep = 10 * bohr
 
+mol = gto.Mole()
+mol.verbose = 1
+mol.atom = 'H 0 0 0; H 0 0 ' + str(H2sep)
+mol.basis = 'sto-3g'
+mol.spin = 0
+mol.build()
+
 Enuc = mol.energy_nuc()
 
 mf = scf.ROHF(mol)
