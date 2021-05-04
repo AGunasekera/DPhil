@@ -248,7 +248,7 @@ def contract(operatorProduct_, first, second):
         return operatorProduct_
     firstIndex = operatorList_[first].orbital
     secondIndex = operatorList_[second].orbital
-    if firstIndex == secondIndex:
+    if firstIndex == secondIndex and operatorList_[first].spin == operatorList_[second].spin:
         if not bool(operatorList_[first].quasi_cre_ann) and bool(operatorList_[second].quasi_cre_ann):
             return operatorProduct(operatorList_[:first] + operatorList_[first+1:second] + operatorList_[second + 1:], operatorProduct_.prefactor * ((-1) ** (1 + second - first)))
     return operatorProduct([],0)
@@ -343,7 +343,10 @@ def sumNFoldContractions(operatorProduct_, n):
 
 def wickExpand(operator, vacuum):
     if isinstance(operator, operatorSum):
-        return operatorSum([wickExpand(product, vacuum) for product in operator.summandList])
+        wickExpansion = operatorSum([])
+        for product in operator.summandList:
+            wickExpansion = wickExpansion + wickExpand(product, vacuum)
+        return wickExpansion
     wickExpansion = operatorSum([normalOrder(operator, vacuum)])
     highestOrder = len(operator.operatorList) // 2
     for n in range(highestOrder):
@@ -355,5 +358,5 @@ def vacuumExpectationValue(operator, vacuum):
     vEV = 0.
     for summand in wickExpansion.summandList:
         if summand.operatorList == []:
-            vEV =+ summand.prefactor
+            vEV += summand.prefactor
     return vEV
