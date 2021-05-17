@@ -5,6 +5,9 @@ from copy import deepcopy
 from itertools import combinations
 
 class basicOperator:
+    '''
+    Class for a single second-quantized creation or annihilation operator for a particle in a given orbital with a given spin
+    '''
     def __init__(self, orbital_, creation_annihilation_, spin_):
         self.orbital = orbital_ #orbital index
         self.spin = spin_ #1 for alpha, 0 for beta
@@ -69,6 +72,9 @@ class basicOperator:
                 state.nelec = (neleca, nelecb - 1)
 
 class operatorProduct:
+    '''
+    Class for a product of basicOperators with a given prefactor
+    '''
     def __init__(self, operatorList_, prefactor_=1.):
         self.operatorList = operatorList_
         self.prefactor = prefactor_
@@ -83,7 +89,9 @@ class operatorProduct:
 
     def __mul__(self, other):
         if isinstance(other, operatorProduct):
-            return operatorProduct(self.operatorList + other.operatorList, self.prefactor * other.prefactor)
+            result = operatorProduct(self.operatorList + other.operatorList, self.prefactor * other.prefactor)
+            result.checkNilpotency()
+            return result
         elif isinstance(other, operatorSum):
             newSummandList = []
             for s in other.summandList:
@@ -97,15 +105,43 @@ class operatorProduct:
             return operatorProduct(self.operatorList, other * self.prefactor)
 
     def __add__(self, other):
+        if self.prefactor == 0:
+            return other
         if isinstance(other, operatorProduct):
+            if other.prefactor == 0:
+                return self
+            elif other.operatorList == self.operatorList:
+                return operatorProduct(self.operatorList, self.prefactor + other.prefactor)
             return operatorSum([self, other])
         elif isinstance(other, operatorSum):
-            return operatorSum([self, other.summandList])
+            return operatorSum([self] + other.summandList)
+        elif isinstance(other, Number):
+            if other == 0:
+                return self
+            return operatorSum([self, operatorProduct([], other)])
+
+    def __radd__(self, other):
+        if isinstance(other, Number):
+            if other == 0:
+                return self
+            return operatorSum([operatorProduct([], other), self])
 
     def __eq__(self, other):
         if isinstance(other, operatorProduct):
             return self.operatorList == other.operatorList and self.prefactor == other.prefactor
 
+    def __pow__(self, other):
+        if isinstance(other, int):
+            result = 1.
+            for i in range(other):
+                result = result * self
+            return result
+        return
+
+    def applyFermiVacuum(self, vacuum):
+        for o in self.operatorList:
+            o.applyFermiVacuum(vacuum)
+            
     def checkNilpotency(self):
         nonZero = True
         i = 0
@@ -118,10 +154,53 @@ class operatorProduct:
                     break
                 j = j + 1
             i = i + 1
-        return int(nonZero)
+        if not nonZero:
+            self.operatorList = []
+            self.prefactor = 0.
 
     def conjugate(self):
         return operatorProduct([o.conjugate() for o in self.operatorList], np.conjugate(self.prefactor))
+
+    def compareProductPriority(self, other):
+        '''
+        Compare priority of operatorProducts for sorting in a list for operatorSum
+        Returns 1 (-1) if self is of higher (lower) priority than other, or 0 if they have the same sequence
+        '''
+        selfList = self.operatorList
+        otherList = other.operatorList
+
+        priorityComparison = 0
+
+        if len(selfList) < len(otherList):
+            priorityComparison = 1
+
+        elif len(selfList) > len(otherList):
+            priorityComparison = -1
+        else:
+            i = 0
+            while i < len(selfList):
+                if selfList[i].quasi_cre_ann > otherList[i].quasi_cre_ann:
+                    priorityComparison = 1
+                    break
+                elif selfList[i].quasi_cre_ann < otherList[i].quasi_cre_ann:
+                    priorityComparison = -1
+                    break
+                else:
+                    if selfList[i].orbital < otherList[i].orbital:
+                        priorityComparison = 1
+                        break
+                    elif selfList[i].orbital > otherList[i].orbital:
+                        priorityComparison = -1
+                        break
+                    else:
+                        if selfList[i].spin > otherList[i].spin:
+                            priorityComparison = 1
+                            break
+                        elif selfList[i].spin < otherList[i].spin:
+                            priorityComparison = -1
+                            break
+                i += 1
+        return priorityComparison
 
     def apply(self, state):
         i = len(self.operatorList)
@@ -130,54 +209,120 @@ class operatorProduct:
             self.operatorList[i].apply(state)
 
 class operatorSum:
+    '''
+    Class for a general second-quantized operator, as a sum of operatorProducts
+    '''
     def __init__(self, summandList_):
         self.summandList = summandList_
+        self.sortSummandList()
 
     def __str__(self):
+        if len(self.summandList) == 0:
+            return "operatorSum([])"
         string = self.summandList[0].__str__()
         s = 1
         while s < len(self.summandList):
-            string = string + " + " + self.summandList[s].__str__()
+            string = string + "\n + " + self.summandList[s].__str__()
             s = s + 1
         return string
 
     def __add__(self, other):
+        result = self
         if isinstance(other, operatorSum):
-            return operatorSum(self.summandList + other.summandList)
+            result = operatorSum(self.summandList + other.summandList)
         elif isinstance(other, operatorProduct):
             if other.prefactor == 0:
                 return self
-            return operatorSum(self.summandList + [other])
+            result = operatorSum(self.summandList + [other])
+        elif isinstance(other, Number):
+            if other == 0:
+                return self
+            result = operatorSum(self.summandList + [operatorProduct([], other)])
+        result.sortSummandList()
+        return result
             
     def __radd__(self, other):
+        result = self
         if isinstance(other, operatorProduct):
             if other.prefactor == 0:
                 return self
-            return operatorSum([other] + self.summandList)
+            result = operatorSum([other] + self.summandList)
+        elif isinstance(other, Number):
+            if other == 0:
+                return self
+            result = operatorSum(self.summandList + [operatorProduct([], other)])
+        result.sortSummandList()
+        return result
 
     def __mul__(self, other):
+        result = self
         if isinstance(other, operatorProduct):
             newSummandList = []
             for s in self.summandList:
                 newSummandList.append(s * other)
-            return operatorSum(newSummandList)
+            result = operatorSum(newSummandList)
         elif isinstance(other, operatorSum):
             newSummandList = []
             for o in other.summandList:
                 partialSum = self * o
                 newSummandList = newSummandList + partialSum.summandList
-            return operatorSum(newSummandList)
+            result = operatorSum(newSummandList)
         elif isinstance(other, Number):
-            return operatorSum([self.summandList[s] * other for s in range(len(self.summandList))])
+            result = operatorSum([self.summandList[s] * other for s in range(len(self.summandList))])
+        result.sortSummandList()
+        return result
 
     def __rmul__(self, other):
+        result = self
         if isinstance(other, operatorProduct):
             newSummandList = []
             for s in self.summandList:
                 newSummandList.append(other * s)
-            return operatorSum(newSummandList)
+            result = operatorSum(newSummandList)
         elif isinstance(other, Number):
-            return operatorSum([other * self.summandList[s] for s in range(len(self.summandList))])
+            result = operatorSum([other * self.summandList[s] for s in range(len(self.summandList))])
+        result.sortSummandList()
+        return result
+
+    def __pow__(self, other):
+        if isinstance(other, int):
+            result = 1.
+            for i in range(other):
+                result = result * self
+            return result
+        return
+
+    def sortSummandList(self):
+        already_sorted = True
+        l = len(self.summandList)
+        i = 0
+        while i < l:
+            j = 0
+            while j < (l - i - 1):
+                priorityComparison = self.summandList[j].compareProductPriority(self.summandList[j+1])
+                if priorityComparison == -1:
+                    priorCopy = deepcopy(self.summandList[j+1])
+                    self.summandList[j+1] = self.summandList[j]
+                    self.summandList[j] = priorCopy
+                    already_sorted = False
+                elif priorityComparison == 0:
+                    self.summandList[j] = self.summandList[j] + self.summandList[j+1]
+                    self.summandList = self.summandList[:j+1] + self.summandList[j+2:]
+                    l -= 1
+                    already_sorted = False
+                j += 1
+            if already_sorted:
+                break
+            i += 1
+
+    def checkNilpotency(self):
+        for product in self.summandList:
+            product.checkNilpotency()
+
+    def conjugate(self):
+        result = deepcopy(self)
+        for product in result.summandList:
+            product = product.conjugate()
 
     def apply(self, state_):
         result = state(np.array([[0.]]), state_.norb, state_.nelec)
@@ -231,7 +376,7 @@ def anticommuteInPlace(operatorProduct_, first):
     Apply fermionic anticommutation relation in place to two adjacent second-quantized operators in an operatorProduct
     '''
     operatorList_ = operatorProduct_.operatorList
-    if operatorProduct_ == []:
+    if operatorList_ == []:
         return
     firstOperatorCopy = deepcopy(operatorList_[first])
     operatorList_[first], operatorList_[first + 1] = operatorList_[first + 1], firstOperatorCopy
@@ -333,12 +478,14 @@ def getPositionsForMultipleContraction(operatorProduct_, n):
 def sumNFoldContractions(operatorProduct_, n):
     chosenPositions = getPositionsForMultipleContraction(operatorProduct_, n)
     if n == 0:
-        return operatorProduct_
+        return operatorSum([operatorProduct_])
     operatorSum_ = operatorSum([])
     for c in chosenPositions:
         pairOrderedList = genPairOrderedLists(list(c))
         for l in pairOrderedList:
-            operatorSum_ = operatorSum_ + multipleContraction(operatorProduct_, l)
+            term = multipleContraction(operatorProduct_, l)
+            print(term)
+            operatorSum_ = operatorSum_ + term
     return operatorSum_
 
 def wickExpand(operator, vacuum):
@@ -347,11 +494,24 @@ def wickExpand(operator, vacuum):
         for product in operator.summandList:
             wickExpansion = wickExpansion + wickExpand(product, vacuum)
         return wickExpansion
+    operator.checkNilpotency()
     wickExpansion = operatorSum([normalOrder(operator, vacuum)])
     highestOrder = len(operator.operatorList) // 2
     for n in range(highestOrder):
         wickExpansion = wickExpansion + sumNFoldContractions(operator, n + 1)
     return normalOrder(wickExpansion, vacuum)
+
+def fullContraction(operator, vacuum):
+    if isinstance(operator, operatorSum):
+        fullyContracted = operatorSum([])
+        for product in operator.summandList:
+            fullyContracted = fullyContracted + fullContraction(product, vacuum)
+        return fullyContracted
+    operator.checkNilpotency()
+    for o in operator.operatorList:
+        o.applyFermiVacuum(vacuum)
+    fullyContracted = sumNFoldContractions(operator, len(operator.operatorList)//2)
+    return fullyContracted
 
 def vacuumExpectationValue(operator, vacuum):
     wickExpansion = wickExpand(operator, vacuum)
@@ -360,3 +520,10 @@ def vacuumExpectationValue(operator, vacuum):
         if summand.operatorList == []:
             vEV += summand.prefactor
     return vEV
+
+def vacuumExpectationValue2(operator, vacuum):
+    fullyContracted = fullContraction(operator, vacuum)
+    if len(fullyContracted.summandList) == 1:
+        return fullyContracted.summandList[0].prefactor
+    else:
+        return 0.
