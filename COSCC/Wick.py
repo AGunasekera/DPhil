@@ -141,7 +141,7 @@ class operatorProduct:
     def applyFermiVacuum(self, vacuum):
         for o in self.operatorList:
             o.applyFermiVacuum(vacuum)
-            
+
     def checkNilpotency(self):
         nonZero = True
         i = 0
@@ -159,7 +159,7 @@ class operatorProduct:
             self.prefactor = 0.
 
     def conjugate(self):
-        return operatorProduct([o.conjugate() for o in self.operatorList], np.conjugate(self.prefactor))
+        return operatorProduct([o.conjugate() for o in self.operatorList][::-1], np.conjugate(self.prefactor))
 
     def compareProductPriority(self, other):
         '''
@@ -292,6 +292,10 @@ class operatorSum:
             return result
         return
 
+    def applyFermiVacuum(self, vacuum):
+        for p in self.summandList:
+            p.applyFermiVacuum(vacuum)
+
     def sortSummandList(self):
         already_sorted = True
         l = len(self.summandList)
@@ -320,9 +324,7 @@ class operatorSum:
             product.checkNilpotency()
 
     def conjugate(self):
-        result = deepcopy(self)
-        for product in result.summandList:
-            product = product.conjugate()
+        return operatorSum([p.conjugate() for p in self.summandList])
 
     def apply(self, state_):
         result = state(np.array([[0.]]), state_.norb, state_.nelec)
@@ -527,3 +529,49 @@ def vacuumExpectationValue2(operator, vacuum):
         return fullyContracted.summandList[0].prefactor
     else:
         return 0.
+
+def contract2operators(o1, o2):
+    if o1.quasi_cre_ann:
+        return 0
+    elif o2.quasi_cre_ann and (o1.spin == o2.spin):
+        return int(o1.orbital == o2.orbital)
+    else:
+        return 0
+
+def recursiveFullContraction(operatorProduct_, vacuum):
+    if isinstance(operatorProduct_, Number):
+        return operatorProduct_
+    operatorProduct_.applyFermiVacuum(vacuum)
+    operatorList_ = operatorProduct_.operatorList
+    if len(operatorList_) == 0:
+        return operatorProduct_.prefactor
+    elif len(operatorList_) == 2:
+        return operatorProduct_.prefactor * contract2operators(operatorList_[0], operatorList_[1])
+    elif len(operatorList_) % 2 == 0:
+        result = 0
+        for i in range(1, len(operatorList_) - 1):
+            if contract2operators(operatorList_[0], operatorList_[i]):
+                result += pow(-1, i-1) * recursiveFullContraction(operatorProduct(operatorList_[1:i] + operatorList_[i+1:], operatorProduct_.prefactor), vacuum)
+#            else:
+#                result += 0
+        if contract2operators(operatorList_[0], operatorList_[-1]):
+            result += recursiveFullContraction(operatorProduct(operatorList_[1:-1], operatorProduct_.prefactor), vacuum)
+#        else:
+#            result += 0
+        return result
+
+def vacuumExpectationValue3(operator, vacuum, printing=False):
+    if isinstance(operator, operatorProduct):
+        return recursiveFullContraction(operator, vacuum)
+    elif isinstance(operator, operatorSum):
+        result = 0
+        for product in operator.summandList:
+            term = recursiveFullContraction(product, vacuum)
+            if printing and term != 0.:
+                print(product)
+            result += term
+        return result
+    elif isinstance(operator, Number):
+        return operator
+    else:
+        return 0
