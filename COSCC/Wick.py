@@ -515,20 +515,20 @@ def fullContraction(operator, vacuum):
     fullyContracted = sumNFoldContractions(operator, len(operator.operatorList)//2)
     return fullyContracted
 
-def vacuumExpectationValue(operator, vacuum):
-    wickExpansion = wickExpand(operator, vacuum)
-    vEV = 0.
-    for summand in wickExpansion.summandList:
-        if summand.operatorList == []:
-            vEV += summand.prefactor
-    return vEV
+#def vacuumExpectationValue(operator, vacuum):
+#    wickExpansion = wickExpand(operator, vacuum)
+#    vEV = 0.
+#    for summand in wickExpansion.summandList:
+#        if summand.operatorList == []:
+#            vEV += summand.prefactor
+#    return vEV
 
-def vacuumExpectationValue2(operator, vacuum):
-    fullyContracted = fullContraction(operator, vacuum)
-    if len(fullyContracted.summandList) == 1:
-        return fullyContracted.summandList[0].prefactor
-    else:
-        return 0.
+#def vacuumExpectationValue2(operator, vacuum):
+#    fullyContracted = fullContraction(operator, vacuum)
+#    if len(fullyContracted.summandList) == 1:
+#        return fullyContracted.summandList[0].prefactor
+#    else:
+#        return 0.
 
 def contract2operators(o1, o2):
     if o1.quasi_cre_ann:
@@ -560,7 +560,7 @@ def recursiveFullContraction(operatorProduct_, vacuum):
 #            result += 0
         return result
 
-def vacuumExpectationValue3(operator, vacuum, printing=False):
+def vacuumExpectationValue(operator, vacuum, printing=False):
     if isinstance(operator, operatorProduct):
         return recursiveFullContraction(operator, vacuum)
     elif isinstance(operator, operatorSum):
