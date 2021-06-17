@@ -32,7 +32,7 @@ def spinFreeNtupleExcitation(creTuple, annTuple):
     spinCombs = itertools.product(range(2), repeat=N)
     for spinComb in spinCombs:
         productList = []
-        for o in range(N):
+        for o in reversed(range(N)):
             productList = [basicOperator(creTuple[o], 1, spinComb[o])] + productList + [basicOperator(annTuple[o], 0, spinComb[o])]
         summandList.append(operatorProduct(productList))
     return operatorSum(summandList)
