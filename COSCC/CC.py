@@ -167,7 +167,7 @@ def coupledCluster(mf_, excitationOrders):
     hamiltonian = get1bodyHamiltonian(mf_) + get2bodyHamiltonian(mf_)
 
     excitations = genExcitationList(Nocc, Norbs, excitationOrders)
-    print(slen(excitations))
+    print(len(excitations))
     initialAmplitudes = np.zeros(len(excitations))
     finalAmplitudes = fsolve(testAmplitudes, initialAmplitudes, args=(excitations, hamiltonian, vacuum))
     return getClusterOperator(excitations, finalAmplitudes)
