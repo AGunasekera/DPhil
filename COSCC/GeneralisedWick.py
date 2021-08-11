@@ -168,7 +168,7 @@ class operatorSum:
         return newSummandList
 
     def __copy__(self):
-        return operatorSum(copy(self.summandList))
+        return operatorSum([copy(summand) for summand in self.summandList])
 
     def __str__(self):
         if len(self.summandList) == 0:
@@ -311,8 +311,8 @@ class Tensor:
         else:
             print("Array is of wrong shape")
 
-    def getOperator(self):
-        return TensorProduct([self]).getOperator()
+    def getOperator(self, spinFree):
+        return TensorProduct([self]).getOperator(spinFree)
 
     def getDiagrams(self, vacuum):
         Nocc = sum(vacuum)
@@ -414,11 +414,14 @@ class Vertex:
             if lowerIndex == contraction[0]:
                 lowerIndex = contraction[1]
 
-    def getOperator(self):
-        return spinFreeExcitation(self.lowerIndices, self.upperIndices)
+    def getOperator(self, spinFree):
+        if spinFree:
+            return normalOrder(spinFreeExcitation(self.lowerIndices, self.upperIndices))
+        else:
+            return normalOrder(operatorSum([excitation(self.lowerIndices, self.upperIndices, [True] * (2 * self.excitationRank))]))
 
     def __copy__(self):
-        return Vertex(self.tensor, self.lowerIndices, self.upperIndices)
+        return Vertex(self.tensor, copy(self.lowerIndices), copy(self.upperIndices))
 
     def __str__(self):
         string = self.name + "_{"
@@ -436,7 +439,8 @@ class TensorProduct:
         self.lowerIndices = {'g':[], 'p':[], 'h':[], 'a':[]}
         self.upperIndices = {'g':[], 'p':[], 'h':[], 'a':[]}
         self.prefactor = prefactor
-        if vertexList is None:
+        self.vertexList = vertexList
+        if self.vertexList is None:
             self.vertexList = self.getVertexList(tensorList)
 
     def applyContraction(self, contraction):
@@ -473,17 +477,17 @@ class TensorProduct:
             vertexList.append(Vertex(t, lowerIndexList, upperIndexList))
         return vertexList
 
-    def getOperator(self):
+    def getOperator(self, spinFree):
         operator = 1
         for vertex in self.vertexList:
-            operator = operator * vertex.getOperator()
+            operator = operator * vertex.getOperator(spinFree)
         return operator
 
-    def getVacuumExpectationValue(self):
-        return vacuumExpectationValue(self.getOperator())
+    def getVacuumExpectationValue(self, spinFree):
+        return vacuumExpectationValue(self.getOperator(spinFree))
 
     def __copy__(self):
-        return TensorProduct(copy(self.tensorList), self.prefactor)
+        return TensorProduct(copy(self.tensorList), copy(self.prefactor), [copy(vertex) for vertex in self.vertexList])
 
     def __add__(self, other):
         if isinstance(other, TensorProduct):
@@ -531,14 +535,14 @@ class TensorSum:
     def __init__(self, summandList):
         self.summandList = summandList
 
-    def getOperator(self):
+    def getOperator(self, spinFree):
         operator = 0
         for summand in self.summandList:
-            operator = operator + summand.getOperator()
+            operator = operator + summand.getOperator(spinFree)
         return operator
 
     def __copy__(self):
-        return TensorSum(copy(self.summandList))
+        return TensorSum([copy(summand) for summand in self.summandList])
 
     def __add__(self, other):
         if isinstance(other, TensorSum):
@@ -576,6 +580,27 @@ class TensorSum:
             string += "\n + "
             string += summand.__str__()
         return string
+
+def normalOrder(operator):
+    '''
+    Input: an operatorProduct or operatorSum and a list corresponding to which orbitals are occupied in the Fermi vacuum
+    Output: normal ordered form of input, with respect to vacuum
+    '''
+    if isinstance(operator, operatorSum):
+        return operatorSum([normalOrder(product) for product in operator.summandList])
+    quasiCreationList, quasiAnnihilationList = [], []
+    quasiCreationCount = 0
+    sign = 1
+    for o in range(len(operator.operatorList)):
+        op = operator.operatorList[o]
+        if bool(op.quasi_cre_ann):
+            quasiCreationList.append(op)
+            if (o - quasiCreationCount) % 2 == 1:
+                sign = -sign
+            quasiCreationCount += 1
+        else:
+            quasiAnnihilationList.append(op)
+    return operatorProduct(quasiCreationList + quasiAnnihilationList, sign * operator.prefactor, operator.contractionsList)
 
 def canContract(o1, o2):
     if o1.quasi_cre_ann:
@@ -640,7 +665,7 @@ def vacuumExpectationValue(operator, speedup=False, printing=False):
     else:
         return operatorSum([])
 
-def evaluateWick(term):
+def evaluateWick(term, spinFree):
     '''
     Wick's theorem applied to a term
 
@@ -648,9 +673,9 @@ def evaluateWick(term):
     output: sum of fully contracted terms (TensorSum)
     '''
     if isinstance(term, TensorSum):
-        return sum([evaluateWick(summand) for summand in term.summandList])
+        return sum([evaluateWick(summand, spinFree) for summand in term.summandList])
     summandList = []
-    fullContractions = vacuumExpectationValue(term.getOperator(), speedup=True)
+    fullContractions = vacuumExpectationValue(term.getOperator(spinFree), speedup=True)
     for topology in fullContractions.summandList:
         contractionsList = topology.contractionsList
         prefactor = topology.prefactor
@@ -674,9 +699,9 @@ def getAxis(vertex, index):
         elif vertex.upperIndices[a] == index:
             return vertex.excitationRank + a
 
-def getContractedArray(operatorProduct_):
-    lowerIndexList = list(itertools.chain.from_iterable([vertex.lowerIndices for vertex in operatorProduct_.vertexList]))
-    upperIndexList = list(itertools.chain.from_iterable([vertex.upperIndices for vertex in operatorProduct_.vertexList]))
+def getContractedArray(tensorProduct_, targetLowerIndexList=None, targetUpperIndexList=None):
+    lowerIndexList = list(itertools.chain.from_iterable([vertex.lowerIndices for vertex in tensorProduct_.vertexList]))
+    upperIndexList = list(itertools.chain.from_iterable([vertex.upperIndices for vertex in tensorProduct_.vertexList]))
     lowerIndexLetters = string.ascii_lowercase[:len(lowerIndexList)]
     upperIndexLetters = ''
     freeLowerIndexMask = np.ones(len(lowerIndexList))
@@ -693,17 +718,33 @@ def getContractedArray(operatorProduct_):
         if free:
             upperIndexLetters += string.ascii_lowercase[len(lowerIndexList) + nFreeUpperIndices]
             nFreeUpperIndices += 1
-    freeLowerIndexLetters = "".join([lowerIndex for lI, lowerIndex in enumerate(lowerIndexLetters) if freeLowerIndexMask[lI]])
-    freeUpperIndexLetters = "".join([upperIndex for uI, upperIndex in enumerate(upperIndexLetters) if freeUpperIndexMask[uI]])
+    newLowerIndexList = [lowerIndex for lI, lowerIndex in enumerate(lowerIndexList) if freeLowerIndexMask[lI]]
+    newUpperIndexList = [upperIndex for uI, upperIndex in enumerate(upperIndexList) if freeUpperIndexMask[uI]]
+    summandZero = False
+    if targetLowerIndexList == None and targetUpperIndexList == None:
+        targetLowerIndexList = newLowerIndexList
+        targetUpperIndexList = newUpperIndexList
+        summandZero = True
+    freeLowerIndexLetters = "".join([lowerIndexLetters[lowerIndexList.index(lowerIndex)] for lowerIndex in targetLowerIndexList])
+    freeUpperIndexLetters = "".join([upperIndexLetters[upperIndexList.index(upperIndex)] for upperIndex in targetUpperIndexList])
     einsumSubstrings = []
     start = 0
-    for vertex in operatorProduct_.vertexList:
+    for vertex in tensorProduct_.vertexList:
         end = start + vertex.excitationRank
         einsumSubstring = lowerIndexLetters[start:end] + upperIndexLetters[start:end]
         einsumSubstrings.append(einsumSubstring)
         start = end
     einsumString = ",".join(einsumSubstrings)
     einsumString += '->' + freeLowerIndexLetters + freeUpperIndexLetters
-    print([vertex.tensor.array.shape for vertex in operatorProduct_.vertexList])
-    contribution = operatorProduct_.prefactor * np.einsum(einsumString, *[vertex.tensor.array for vertex in operatorProduct_.vertexList])
+    contribution = tensorProduct_.prefactor * np.einsum(einsumString, *[vertex.tensor.array for vertex in tensorProduct_.vertexList])
+    if summandZero:
+        return contribution, newLowerIndexList, newUpperIndexList
     return contribution
+
+def contractTensorSum(tensorSum_):
+    contractedArray, lowerIndexList, upperIndexList = getContractedArray(tensorSum_.summandList[0])
+    i = 1
+    while i < len(tensorSum_.summandList):
+        contractedArray += getContractedArray(tensorSum_.summandList[i], lowerIndexList, upperIndexList)
+        i += 1
+    return contractedArray
