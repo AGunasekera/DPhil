@@ -256,7 +256,7 @@ class excitation(operatorProduct):
         for i in range(len(creationIndicesList_)):
             self.operatorList.append(basicOperator(creationIndicesList_[i], True, spinList_[i]))
         for i in range(len(annihilationIndicesList_)):
-            self.operatorList.append(basicOperator(annihilationIndicesList_[i], False, spinList_[i+len(creationIndicesList_)]))
+            self.operatorList.append(basicOperator(annihilationIndicesList_[-1-i], False, spinList_[-1-i]))
 
 class spinFreeExcitation(operatorSum):
     def __init__(self, creationList_, annihilationList_):
@@ -269,7 +269,7 @@ class spinFreeExcitation(operatorSum):
             spinLists = np.concatenate((spinLists, newspinLists))
         for l in range(len(spinLists)):
             spinList = spinLists[l]
-            self.summandList.append(excitation(creationList_, annihilationList_, [*spinList, *spinList[::-1]]))
+            self.summandList.append(excitation(creationList_, annihilationList_, 2 * spinList))
 
 class Tensor:
     '''
@@ -326,7 +326,7 @@ class Tensor:
             lowerSlices = [slice(None)] * self.excitationRank
             lowerSplitIndexTypes = list(lowerSplit)
             lGI = 0
-            newLowerIndexTypes = copy.copy(self.lowerIndexTypes)
+            newLowerIndexTypes = copy(self.lowerIndexTypes)
             for lI in range(len(newLowerIndexTypes)):
                 if newLowerIndexTypes[lI] == 'g':
                     newLI = lowerSplitIndexTypes[lGI]
@@ -340,7 +340,7 @@ class Tensor:
                 upperSlices = [slice(None)] * self.excitationRank
                 upperSplitIndexTypes = list(upperSplit)
                 uGI = 0
-                newUpperIndexTypes = copy.copy(self.upperIndexTypes)
+                newUpperIndexTypes = copy(self.upperIndexTypes)
                 for uI in range(len(newUpperIndexTypes)):
                     if newUpperIndexTypes[uI] == 'g':
                         newUI = upperSplitIndexTypes[uGI]
