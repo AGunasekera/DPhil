@@ -350,13 +350,14 @@ class Tensor:
                             upperSlices[uI] = slice(Nocc, None)
                         newUpperIndexTypes[uI] = newUI
                         uGI += 1
-                slices = lowerSlices + upperSlices
+                slices = tuple(lowerSlices + upperSlices)
                 print(lowerSplitIndexTypes)
                 print(upperSplitIndexTypes)
                 print(newLowerIndexTypes)
                 print(newUpperIndexTypes)
                 print(slices)
-                diagram = Tensor(self.name, newLowerIndexTypes, newUpperIndexTypes, self.array[slices])
+                diagram = Tensor(self.name, newLowerIndexTypes, newUpperIndexTypes)
+                diagram.array = self.array[slices]
                 diagrams.append(diagram)
         return diagrams
 

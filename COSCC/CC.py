@@ -128,7 +128,8 @@ def getClusterOperator(excitationList, amplitudeList):
         clusterOperator = clusterOperator + amplitudeList[i] * excitationList[i]
     return clusterOperator
 
-def testDoublesAmplitudes(hamiltonian_, doublesAmplitudes_):
+def testDoublesAmplitudes(hamiltonian_, doublesAmplitudes_, vacuum):
+    doublesAmplitudeShape = doublesAmplitudes_.shape
     newbch = BCHSimilarityTransform(hamiltonian_, getClusterDoubles(doublesAmplitudes_), 4)
     newbch.checkNilpotency()
     excitations = []
@@ -142,13 +143,13 @@ def testDoublesAmplitudes(hamiltonian_, doublesAmplitudes_):
     projectedVEVs = []
     for excitation in excitations:
         newprojected = excitation.conjugate() * newbch
-        projectedVEVs.append(vacuumExpectationValue3(newprojected, vacuum))
+        projectedVEVs.append(vacuumExpectationValue(newprojected, vacuum))
     return projectedVEVs
 
 def testFunc(flattenedDoublesAmplitudes):
-    doublesAmplitudes = flattened
-    test = testDoublesAmplitudes(doublesAmplitudes)
-    print(x, test)
+#    doublesAmplitudes = flattenedDoublesAmplitudes.reshape()
+    test = testDoublesAmplitudes(flattenedDoublesAmplitudes)
+    print(flattenedDoublesAmplitudes, test)
     return test
 
 def testAmplitudes(amplitudes_, excitations_, hamiltonian_, vacuum):
