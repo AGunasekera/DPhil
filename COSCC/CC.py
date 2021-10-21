@@ -32,7 +32,7 @@ def spinFreeNtupleExcitation(creTuple, annTuple):
     spinCombs = itertools.product(range(2), repeat=N)
     for spinComb in spinCombs:
         productList = []
-        for o in range(N):
+        for o in reversed(range(N)):
             productList = [basicOperator(creTuple[o], 1, spinComb[o])] + productList + [basicOperator(annTuple[o], 0, spinComb[o])]
         summandList.append(operatorProduct(productList))
     return operatorSum(summandList)
@@ -128,7 +128,8 @@ def getClusterOperator(excitationList, amplitudeList):
         clusterOperator = clusterOperator + amplitudeList[i] * excitationList[i]
     return clusterOperator
 
-def testDoublesAmplitudes(hamiltonian_, doublesAmplitudes_):
+def testDoublesAmplitudes(hamiltonian_, doublesAmplitudes_, vacuum):
+    doublesAmplitudeShape = doublesAmplitudes_.shape
     newbch = BCHSimilarityTransform(hamiltonian_, getClusterDoubles(doublesAmplitudes_), 4)
     newbch.checkNilpotency()
     excitations = []
@@ -142,13 +143,13 @@ def testDoublesAmplitudes(hamiltonian_, doublesAmplitudes_):
     projectedVEVs = []
     for excitation in excitations:
         newprojected = excitation.conjugate() * newbch
-        projectedVEVs.append(vacuumExpectationValue3(newprojected, vacuum))
+        projectedVEVs.append(vacuumExpectationValue(newprojected, vacuum))
     return projectedVEVs
 
 def testFunc(flattenedDoublesAmplitudes):
-    doublesAmplitudes = flattened
-    test = testDoublesAmplitudes(doublesAmplitudes)
-    print(x, test)
+#    doublesAmplitudes = flattenedDoublesAmplitudes.reshape()
+    test = testDoublesAmplitudes(flattenedDoublesAmplitudes)
+    print(flattenedDoublesAmplitudes, test)
     return test
 
 def testAmplitudes(amplitudes_, excitations_, hamiltonian_, vacuum):
@@ -167,10 +168,10 @@ def coupledCluster(mf_, excitationOrders):
     hamiltonian = get1bodyHamiltonian(mf_) + get2bodyHamiltonian(mf_)
 
     excitations = genExcitationList(Nocc, Norbs, excitationOrders)
-    print(slen(excitations))
+    print(len(excitations))
     initialAmplitudes = np.zeros(len(excitations))
     finalAmplitudes = fsolve(testAmplitudes, initialAmplitudes, args=(excitations, hamiltonian, vacuum))
-    return getClusterOperator(excitations, finalAmplitudes)
+    return (excitations, finalAmplitudes)
 
 def CCD(mf_):
     Norbs = mf_.mol.nao

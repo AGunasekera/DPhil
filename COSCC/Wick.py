@@ -326,20 +326,20 @@ class operatorSum:
     def conjugate(self):
         return operatorSum([p.conjugate() for p in self.summandList])
 
-    def apply(self, state_):
-        result = state(np.array([[0.]]), state_.norb, state_.nelec)
-        for o in self.summandList:
-            statecopy = deepcopy(state_)
-            o.apply(statecopy)
-            print(statecopy.array)
-            result = statecopy + result
-            print(result.array)
+#    def apply(self, state_):
+#        result = state(np.array([[0.]]), state_.norb, state_.nelec)
+#        for o in self.summandList:
+#            statecopy = deepcopy(state_)
+#            o.apply(statecopy)
+#            print(statecopy.array)
+#            result = statecopy + result
+#            print(result.array)
 #        state1, state2 = copy(state), copy(state)
 #        self.operator1.apply(state1)
 #        self.operator2.apply(state2)
 #        state = state1 + state2
-        state_ = deepcopy(result)
-        print(state_.array)
+#        state_ = deepcopy(result)
+#        print(state_.array)
 
 def normalOrder(operator, vacuum):
     '''
