@@ -311,8 +311,8 @@ class Tensor:
         else:
             print("Array is of wrong shape")
 
-    def getOperator(self, spinFree):
-        return TensorProduct([self]).getOperator(spinFree)
+    def getOperator(self, spinFree, normalOrdered=True):
+        return TensorProduct([self]).getOperator(spinFree, normalOrdered)
 
     def getDiagrams(self, vacuum):
         Nocc = sum(vacuum)
@@ -356,6 +356,54 @@ class Tensor:
                 print(newLowerIndexTypes)
                 print(newUpperIndexTypes)
                 print(slices)
+                diagram = Tensor(self.name, newLowerIndexTypes, newUpperIndexTypes)
+                diagram.array = self.array[slices]
+                diagrams.append(diagram)
+        return diagrams
+
+    def getAllDiagrams(self, vacuum):
+        Nocc = sum(vacuum)
+        Norbs = len(vacuum)
+        diagrams = []
+        lowerGeneralIndexCount = sum(i == 'g' for i in self.lowerIndexTypes)
+        lowerSplits = list(itertools.product(['h', 'p'], repeat=lowerGeneralIndexCount))
+        upperGeneralIndexCount = sum(i == 'g' for i in self.upperIndexTypes)
+        upperSplits = list(itertools.product(['h', 'p'], repeat=upperGeneralIndexCount))
+        for lowerSplit in lowerSplits:
+            lowerSlices = [slice(None)] * self.excitationRank
+            lowerSplitIndexTypes = list(lowerSplit)
+            lGI = 0
+            newLowerIndexTypes = copy(self.lowerIndexTypes)
+            for lI in range(len(newLowerIndexTypes)):
+                if newLowerIndexTypes[lI] == 'g':
+                    newLI = lowerSplitIndexTypes[lGI]
+                    if newLI == 'h':
+                        lowerSlices[lI] = slice(None,Nocc)
+                    elif newLI == 'p':
+                        lowerSlices[lI] = slice(Nocc, None)
+                    newLowerIndexTypes[lI] = newLI
+                    lGI += 1
+            for upperSplit in upperSplits:
+#                print(lowerSplit, upperSplit)
+                upperSlices = [slice(None)] * self.excitationRank
+                upperSplitIndexTypes = list(upperSplit)
+                uGI = 0
+                newUpperIndexTypes = copy(self.upperIndexTypes)
+                for uI in range(len(newUpperIndexTypes)):
+                    if newUpperIndexTypes[uI] == 'g':
+                        newUI = upperSplitIndexTypes[uGI]
+                        if newUI == 'h':
+                            upperSlices[uI] = slice(None,Nocc)
+                        elif newUI == 'p':
+                            upperSlices[uI] = slice(Nocc, None)
+                        newUpperIndexTypes[uI] = newUI
+                        uGI += 1
+                slices = tuple(lowerSlices + upperSlices)
+#                print(lowerSplitIndexTypes)
+#                print(upperSplitIndexTypes)
+#                print(newLowerIndexTypes)
+#                print(newUpperIndexTypes)
+#                print(slices)
                 diagram = Tensor(self.name, newLowerIndexTypes, newUpperIndexTypes)
                 diagram.array = self.array[slices]
                 diagrams.append(diagram)
@@ -415,11 +463,17 @@ class Vertex:
             if lowerIndex == contraction[0]:
                 lowerIndex = contraction[1]
 
-    def getOperator(self, spinFree):
-        if spinFree:
-            return normalOrder(spinFreeExcitation(self.lowerIndices, self.upperIndices))
+    def getOperator(self, spinFree, normalOrdered=True):
+        if normalOrdered:
+            if spinFree:
+                return normalOrder(spinFreeExcitation(self.lowerIndices, self.upperIndices))
+            else:
+                return normalOrder(operatorSum([excitation(self.lowerIndices, self.upperIndices, [True] * (2 * self.excitationRank))]))
         else:
-            return normalOrder(operatorSum([excitation(self.lowerIndices, self.upperIndices, [True] * (2 * self.excitationRank))]))
+            if spinFree:
+                return spinFreeExcitation(self.lowerIndices, self.upperIndices)
+            else:
+                return operatorSum([excitation(self.lowerIndices, self.upperIndices, [True] * (2 * self.excitationRank))])
 
     def __copy__(self):
         return Vertex(self.tensor, copy(self.lowerIndices), copy(self.upperIndices))
@@ -478,14 +532,14 @@ class TensorProduct:
             vertexList.append(Vertex(t, lowerIndexList, upperIndexList))
         return vertexList
 
-    def getOperator(self, spinFree):
+    def getOperator(self, spinFree, normalOrderedParts=True):
         operator = 1
         for vertex in self.vertexList:
-            operator = operator * vertex.getOperator(spinFree)
+            operator = operator * vertex.getOperator(spinFree, normalOrderedParts)
         return operator
 
-    def getVacuumExpectationValue(self, spinFree):
-        return vacuumExpectationValue(self.getOperator(spinFree))
+    def getVacuumExpectationValue(self, spinFree, normalOrderedParts=True):
+        return vacuumExpectationValue(self.getOperator(spinFree, normalOrderedParts))
 
     def __copy__(self):
         return TensorProduct(copy(self.tensorList), copy(self.prefactor), [copy(vertex) for vertex in self.vertexList])
@@ -536,10 +590,10 @@ class TensorSum:
     def __init__(self, summandList):
         self.summandList = summandList
 
-    def getOperator(self, spinFree):
+    def getOperator(self, spinFree, normalOrderedParts=True):
         operator = 0
         for summand in self.summandList:
-            operator = operator + summand.getOperator(spinFree)
+            operator = operator + summand.getOperator(spinFree, normalOrderedParts)
         return operator
 
     def __copy__(self):
@@ -666,7 +720,7 @@ def vacuumExpectationValue(operator, speedup=False, printing=False):
     else:
         return operatorSum([])
 
-def evaluateWick(term, spinFree):
+def evaluateWick(term, spinFree, normalOrderedParts=True):
     '''
     Wick's theorem applied to a term
 
@@ -676,7 +730,7 @@ def evaluateWick(term, spinFree):
     if isinstance(term, TensorSum):
         return sum([evaluateWick(summand, spinFree) for summand in term.summandList])
     summandList = []
-    fullContractions = vacuumExpectationValue(term.getOperator(spinFree), speedup=True)
+    fullContractions = vacuumExpectationValue(term.getOperator(spinFree, normalOrderedParts), speedup=True)
     for topology in fullContractions.summandList:
         contractionsList = topology.contractionsList
         prefactor = topology.prefactor
@@ -743,6 +797,8 @@ def getContractedArray(tensorProduct_, targetLowerIndexList=None, targetUpperInd
     return contribution
 
 def contractTensorSum(tensorSum_):
+    if len(tensorSum_.summandList) == 0:
+        return 0
     contractedArray, lowerIndexList, upperIndexList = getContractedArray(tensorSum_.summandList[0])
     i = 1
     while i < len(tensorSum_.summandList):

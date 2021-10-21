@@ -171,7 +171,7 @@ def coupledCluster(mf_, excitationOrders):
     print(len(excitations))
     initialAmplitudes = np.zeros(len(excitations))
     finalAmplitudes = fsolve(testAmplitudes, initialAmplitudes, args=(excitations, hamiltonian, vacuum))
-    return getClusterOperator(excitations, finalAmplitudes)
+    return (excitations, finalAmplitudes)
 
 def CCD(mf_):
     Norbs = mf_.mol.nao
