@@ -409,6 +409,57 @@ class Tensor:
                 diagrams.append(diagram)
         return diagrams
 
+    def getAllDiagramsGeneral(self):
+        diagrams = []
+        lowerGeneralIndexCount = sum(i == 'g' for i in self.lowerIndexTypes)
+        lowerSplits = list(itertools.product(['h', 'p'], repeat=lowerGeneralIndexCount))
+        upperGeneralIndexCount = sum(i == 'g' for i in self.upperIndexTypes)
+        upperSplits = list(itertools.product(['h', 'p'], repeat=upperGeneralIndexCount))
+        for lowerSplit in lowerSplits:
+            lowerSplitIndexTypes = list(lowerSplit)
+            lGI = 0
+            newLowerIndexTypes = copy(self.lowerIndexTypes)
+            for lI in range(len(newLowerIndexTypes)):
+                if newLowerIndexTypes[lI] == 'g':
+                    newLI = lowerSplitIndexTypes[lGI]
+                    newLowerIndexTypes[lI] = newLI
+                    lGI += 1
+            for upperSplit in upperSplits:
+#                print(lowerSplit, upperSplit)
+                upperSplitIndexTypes = list(upperSplit)
+                uGI = 0
+                newUpperIndexTypes = copy(self.upperIndexTypes)
+                for uI in range(len(newUpperIndexTypes)):
+                    if newUpperIndexTypes[uI] == 'g':
+                        newUI = upperSplitIndexTypes[uGI]
+                        newUpperIndexTypes[uI] = newUI
+                        uGI += 1
+#                print(lowerSplitIndexTypes)
+#                print(upperSplitIndexTypes)
+#                print(newLowerIndexTypes)
+#                print(newUpperIndexTypes)
+                diagram = Tensor(self.name, newLowerIndexTypes, newUpperIndexTypes)
+                diagrams.append(diagram)
+        self.diagrams = diagrams
+    
+    def assignDiagramArrays(self, vacuum):
+        Nocc = sum(vacuum)
+        for diagram in self.diagrams:
+            lowerSlices = [slice(None)] * self.excitationRank
+            upperSlices = [slice(None)] * self.excitationRank
+            for lI, lowerIndex in enumerate(diagram.lowerIndexTypes):
+                if lowerIndex == 'h':
+                    lowerSlices[lI] = slice(None,Nocc)
+                elif lowerIndex == 'p':
+                    lowerSlices[lI] = slice(Nocc, None)
+            for uI, upperIndex in enumerate(diagram.upperIndexTypes):
+                if upperIndex == 'h':
+                    upperSlices[uI] = slice(None,Nocc)
+                elif upperIndex == 'p':
+                    upperSlices[uI] = slice(Nocc, None)
+            slices = tuple(lowerSlices + upperSlices)
+            diagram.array = self.array[slices]
+
     def __add__(self, other):
         if isinstance(other, Tensor):
             return TensorSum([TensorProduct([self]), TensorProduct([other])])
