@@ -3,6 +3,8 @@ from numbers import Number
 from pyscf import gto, scf, ao2mo, fci
 from copy import deepcopy, copy
 from math import factorial
+import networkx as nx
+from networkx.algorithms import isomorphism
 import itertools
 import string
 
@@ -539,6 +541,13 @@ class Vertex:
         string += "}"
         return string
 
+class node:
+    def __init__(self, annihilationIndex, creationIndex):
+        self.inIndex = annihilationIndex
+        self.outIndex = creationIndex
+        self.inContracted = False
+        self.outContracted = False
+
 class TensorProduct:
     def __init__(self, tensorList, prefactor=1., vertexList=None):
         self.tensorList = tensorList
@@ -584,13 +593,52 @@ class TensorProduct:
         return vertexList
 
     def getOperator(self, spinFree, normalOrderedParts=True):
-        operator = 1
+        operator = self.prefactor
         for vertex in self.vertexList:
             operator = operator * vertex.getOperator(spinFree, normalOrderedParts)
         return operator
 
     def getVacuumExpectationValue(self, spinFree, normalOrderedParts=True):
         return vacuumExpectationValue(self.getOperator(spinFree, normalOrderedParts))
+
+    def getGraph(self):
+        graph = nx.DiGraph()
+        for vertex in self.vertexList:
+            vertex.nodes = []
+            for i in range(vertex.excitationRank):
+                vertex.nodes.append(node(vertex.upperIndices[i], vertex.lowerIndices[i]))
+        for v1, vertex1 in enumerate(self.vertexList):
+            graph.add_nodes_from(vertex1.nodes, vertex=v1, freeOutType="", freeInType="")
+            graph.add_edges_from(itertools.permutations(vertex1.nodes, 2), connection="interaction")
+            for v2, vertex2 in enumerate(self.vertexList):
+                for node1 in vertex1.nodes:
+                    for node2 in vertex2.nodes:
+                        if node1.outIndex == node2.inIndex:
+                            node1.outContracted = True
+                            node2.inContracted = True
+                            graph.add_edge(node1, node2, connection="propagation")
+            for node1 in vertex1.nodes:
+                if not node1.outContracted:
+                    if node1.outIndex.occupiedInVacuum:
+                        graph.nodes[node1]["freeOutType"]="h"
+                    else:
+                        graph.nodes[node1]["freeOutType"]="p"
+                if not node1.inContracted:
+                    if node1.inIndex.occupiedInVacuum:
+                        graph.nodes[node1]["freeInType"]="h"
+                    else:
+                        graph.nodes[node1]["freeInType"]="p"
+        return graph
+
+    def drawGraph(self):
+        graph = self.getGraph
+        nx.draw(graph, nx.multipartite_layout(graph, "vertex", "horizontal"))
+
+    def isProportional(self, other):
+        selfGraph = self.getGraph()
+        otherGraph = other.getGraph()
+        DiGM = isomorphism.DiGraphMatcher(selfGraph, otherGraph)
+        return (self.tensorList == other.tensorList) and DiGM.is_isomorphic() and all([DiGM.semantic_feasibility(DiGM.mapping[n], n) for n in DiGM.mapping.keys()])
 
     def __copy__(self):
         return TensorProduct(copy(self.tensorList), copy(self.prefactor), [copy(vertex) for vertex in self.vertexList])
@@ -643,9 +691,22 @@ class TensorSum:
 
     def getOperator(self, spinFree, normalOrderedParts=True):
         operator = 0
+    #    for summand in self.summandList:
+    #        operator = operator + summand.getOperator(spinFree, normalOrderedParts)
+    #    return operator
+        return sum([summand.getOperator(spinFree, normalOrderedParts) for summand in self.summandList])
+
+    def collectIsomorphicTerms(self):
+        collected = TensorSum([])
         for summand in self.summandList:
-            operator = operator + summand.getOperator(spinFree, normalOrderedParts)
-        return operator
+            included = False
+            for uniqueSummand in collected.summandList:
+                if summand.isProportional(uniqueSummand):
+                    included = True
+                    uniqueSummand.prefactor += summand.prefactor
+            if not included:
+                collected.summandList.append(copy(summand))
+        return collected
 
     def __copy__(self):
         return TensorSum([copy(summand) for summand in self.summandList])
@@ -720,10 +781,10 @@ def recursiveFullContraction(operatorProduct_, speedup=False):
     operatorList_ = operatorProduct_.operatorList
     if speedup:
         if not sum(o.quasi_cre_ann for o in operatorList_) == sum(not o.quasi_cre_ann for o in operatorList_):
-            return 0
+            return operatorSum([])
     existingContractions = operatorProduct_.contractionsList
     if len(operatorList_) == 0:
-        return operatorProduct_
+        return operatorSum([operatorProduct_])
     elif len(operatorList_) == 2:
         if canContract(operatorList_[0], operatorList_[1]):
             contractionTuple = tuple()
@@ -731,11 +792,11 @@ def recursiveFullContraction(operatorProduct_, speedup=False):
                 contractionTuple = (operatorList_[0].index, operatorList_[1].index)
             else:
                 contractionTuple = (operatorList_[1].index, operatorList_[0].index)
-            return operatorProduct([], operatorProduct_.prefactor, existingContractions + [contractionTuple])
+            return operatorSum([operatorProduct([], operatorProduct_.prefactor, existingContractions + [contractionTuple])])
         else:
-            return 0
+            return operatorSum([])
     elif len(operatorList_) % 2 == 0:
-        result = 0
+        result = operatorSum([])
         for i in range(1, len(operatorList_) - 1):
             if canContract(operatorList_[0], operatorList_[i]):
                 contractionTuple = tuple()
@@ -753,7 +814,7 @@ def recursiveFullContraction(operatorProduct_, speedup=False):
             result += recursiveFullContraction(operatorProduct(operatorList_[1:-1], operatorProduct_.prefactor, existingContractions + [contractionTuple]))
         return result
     else:
-        return 0
+        return operatorSum([])
 
 def vacuumExpectationValue(operator, speedup=False, printing=False):
     if isinstance(operator, operatorProduct):
@@ -784,9 +845,8 @@ def evaluateWick(term, spinFree, normalOrderedParts=True):
     fullContractions = vacuumExpectationValue(term.getOperator(spinFree, normalOrderedParts), speedup=True)
     for topology in fullContractions.summandList:
         contractionsList = topology.contractionsList
-        prefactor = topology.prefactor
         contractedTerm = copy(term)
-        contractedTerm.prefactor *= topology.prefactor
+        contractedTerm.prefactor = topology.prefactor
         for c, contraction in enumerate(contractionsList):
             for v, vertex in reversed(list(enumerate(term.vertexList))):
                 if contraction[0] in vertex.lowerIndices:
@@ -797,6 +857,63 @@ def evaluateWick(term, spinFree, normalOrderedParts=True):
                     break
         summandList.append(contractedTerm)
     return TensorSum(summandList)
+
+def chooseUncontractedOperatorPositions(operatorProduct_, freeIndexTypes):
+    operatorList_ = operatorProduct_.operatorList
+    lowerIndexTypes, upperIndexTypes = freeIndexTypes[0], freeIndexTypes[1]
+    possiblechoices = itertools.combinations([*range(len(operatorList_))], len(lowerIndexTypes) + len(upperIndexTypes))
+    for possiblechoice in possiblechoices:
+        if sum([operatorList_[o].creation_annihilation for o in possiblechoice]) == len(lowerIndexTypes):
+            if sum([operatorList_[o].creation_annihilation and operatorList_[o].quasi_cre_ann for o in possiblechoice]) == sum([lowerIndexType == "p" for lowerIndexType in lowerIndexTypes]) and sum([operatorList_[o].creation_annihilation and not operatorList_[o].quasi_cre_ann for o in possiblechoice]) == sum([lowerIndexType == "h" for lowerIndexType in lowerIndexTypes]):
+                if sum([not operatorList_[o].creation_annihilation and not operatorList_[o].quasi_cre_ann for o in possiblechoice]) == sum([upperIndexType == "p" for upperIndexType in upperIndexTypes]) and sum([not operatorList_[o].creation_annihilation and operatorList_[o].quasi_cre_ann for o in possiblechoice]) == sum([upperIndexType == "h" for upperIndexType in upperIndexTypes]):
+                    yield possiblechoice
+
+def recursiveIncompleteContractionNew(operator, freeIndexTypes=([], []), speedup=False):
+    if isinstance(operator, operatorSum):
+        return sum([recursiveIncompleteContractionNew(summand, freeIndexTypes, speedup)for summand in operator.summandList])
+    operatorList_ = operator.operatorList
+    total = operatorSum([])
+    for choice in chooseUncontractedOperatorPositions(operator, freeIndexTypes):
+        parity = sum([p for p in choice]) % 2
+        newOperatorList = [operatorList_[p] for p in choice]
+        contractedOperatorList = [operator for o, operator in enumerate(operatorList_) if o not in choice]
+        contractions = vacuumExpectationValue(operatorProduct(contractedOperatorList), speedup)
+        for contraction in contractions.summandList:
+            contraction.operatorList = newOperatorList
+        contractions *= pow(-1, parity)
+        total += contractions
+    return total
+
+def evaluateWickFree(term, spinFree, freeIndexTypes=([], []), speedup=False, normalOrderedParts=True):
+    '''
+    Wick's theorem applied to a term
+
+    input: term (TensorProduct)
+    output: sum of partially contracted terms (TensorSum)
+    '''
+    if isinstance(term, TensorSum):
+        return sum([evaluateWickFree(summand, spinFree, freeIndexTypes, speedup) for summand in term.summandList])
+    summandList = []
+    if freeIndexTypes == ([], []):
+        contractions = vacuumExpectationValue(term.getOperator(spinFree, normalOrderedParts), speedup)
+    else:
+        contractions = recursiveIncompleteContractionNew(term.getOperator(spinFree, normalOrderedParts), freeIndexTypes)
+    for topology in contractions.summandList:
+        contractionsList = topology.contractionsList
+        contractedTerm = copy(term)
+        contractedTerm.prefactor = topology.prefactor
+        contractedTerm.prefactor /= pow(2, len(freeIndexTypes[0]))
+        for c, contraction in enumerate(contractionsList):
+            for v, vertex in reversed(list(enumerate(term.vertexList))):
+                if contraction[0] in vertex.lowerIndices:
+                    contractedTerm.vertexList[v].lowerIndices[vertex.lowerIndices.index(contraction[0])] = contraction[1]
+                    break
+                elif contraction[1] in vertex.upperIndices:
+                    contractedTerm.vertexList[v].upperIndices[vertex.upperIndices.index(contraction[1])] = contraction[0]
+                    break
+        summandList.append(contractedTerm)
+    return TensorSum(summandList)
+#    return TensorSum(summandList).collectIsomorphicTerms()
 
 def getAxis(vertex, index):
     for a in range(vertex.excitationRank):
