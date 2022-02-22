@@ -528,6 +528,12 @@ class Vertex:
             else:
                 return operatorSum([excitation(self.lowerIndices, self.upperIndices, [True] * (2 * self.excitationRank))])
 
+    def __eq__(self, other):
+        if isinstance(other, Vertex):
+            return self.name == other.name and self.tensor == other.tensor and self.lowerIndices == other.lowerIndices and self.upperIndices == other.upperIndices
+        else:
+            return NotImplemented
+
     def __copy__(self):
         return Vertex(self.tensor, copy(self.lowerIndices), copy(self.upperIndices))
 
@@ -608,8 +614,11 @@ class TensorProduct:
             for i in range(vertex.excitationRank):
                 vertex.nodes.append(node(vertex.upperIndices[i], vertex.lowerIndices[i]))
         for v1, vertex1 in enumerate(self.vertexList):
-            graph.add_nodes_from(vertex1.nodes, vertex=v1, freeOutType="", freeInType="")
-            graph.add_edges_from(itertools.permutations(vertex1.nodes, 2), connection="interaction")
+            graph.add_nodes_from(vertex1.nodes, vertex=v1, freeOutType="", freeInType="", tensorName=vertex1.tensor.name)
+            if vertex1.tensor.name == '\\Phi':
+                graph.add_edges_from(itertools.combinations(vertex1.nodes, 2), connection="interaction")
+            else:
+                graph.add_edges_from(itertools.permutations(vertex1.nodes, 2), connection="interaction")
             for v2, vertex2 in enumerate(self.vertexList):
                 for node1 in vertex1.nodes:
                     for node2 in vertex2.nodes:
@@ -631,14 +640,47 @@ class TensorProduct:
         return graph
 
     def drawGraph(self):
-        graph = self.getGraph
+        graph = self.getGraph()
         nx.draw(graph, nx.multipartite_layout(graph, "vertex", "horizontal"))
+
+    def nodeMatch(self, node1, node2):
+        return node1["tensorName"] == node2["tensorName"] and node1["freeInType"] == node2["freeInType"] and node1["freeOutType"] == node2["freeOutType"]
+
+    def edgeMatch(self, edge1, edge2):
+        return edge1["connection"] == edge2["connection"]
 
     def isProportional(self, other):
         selfGraph = self.getGraph()
         otherGraph = other.getGraph()
+        DiGM = isomorphism.DiGraphMatcher(selfGraph, otherGraph, self.nodeMatch, self.edgeMatch)
+        return sorted([t.name for t in self.tensorList]) == sorted([t.name for t in other.tensorList]) and DiGM.is_isomorphic()
+
+    def followPropagation(self, graph, node):
+        currentNode = node
+        while currentNode.outContracted:
+            for nbr, datadict in graph.adj[node].items():
+                if datadict["connection"] == "propagation":
+                    currentNode = nbr
+        return currentNode
+
+    def getFreeIndexPairs(self, graph):
+        freeIndexPairsDict = {}
+        for startNode in graph.nodes:
+            if not startNode.inContracted:
+                inIndex = startNode.inIndex
+                endNode = self.followPropagation(graph, startNode)
+                outIndex = endNode.outIndex
+#                print(inIndex, outIndex)
+                freeIndexPairsDict[startNode] = endNode
+        return freeIndexPairsDict
+
+    def isProportional1(self, other):
+        selfGraph = self.getGraph()
+        otherGraph = other.getGraph()
         DiGM = isomorphism.DiGraphMatcher(selfGraph, otherGraph)
-        return (self.tensorList == other.tensorList) and DiGM.is_isomorphic() and all([DiGM.semantic_feasibility(DiGM.mapping[n], n) for n in DiGM.mapping.keys()])
+        selfFreeIndexPairs = self.getFreeIndexPairs(selfGraph)
+        otherFreeIndexPairs = other.getFreeIndexPairs(otherGraph)
+        return (self.tensorList == other.tensorList) and DiGM.is_isomorphic() and all([DiGM.semantic_feasibility(DiGM.mapping[n], n) for n in DiGM.mapping.keys()]) and all([DiGM.mapping[selfFreeIndexPairs[startNode]] == otherFreeIndexPairs[DiGM.mapping[startNode]] for startNode in selfFreeIndexPairs.keys()]) and len(selfFreeIndexPairs) == len(otherFreeIndexPairs)
 
     def __copy__(self):
         return TensorProduct(copy(self.tensorList), copy(self.prefactor), [copy(vertex) for vertex in self.vertexList])
@@ -665,7 +707,7 @@ class TensorProduct:
         elif isinstance(other, TensorProduct):
             return TensorProduct(self.tensorList + other.tensorList, self.prefactor * other.prefactor)
         elif isinstance(other, Number):
-            return TensorProduct(self.tensorList, self.prefactor * other)
+            return TensorProduct(self.tensorList, self.prefactor * other, self.vertexList)
         else:
             return NotImplemented
 
@@ -673,7 +715,7 @@ class TensorProduct:
         if isinstance(other, Tensor):
             return TensorProduct([other] + self.tensorList, self.prefactor)
         elif isinstance(other, Number):
-            return TensorProduct(self.tensorList, other * self.prefactor)
+            return TensorProduct(self.tensorList, other * self.prefactor, self.vertexList)
         else:
             return NotImplemented
 

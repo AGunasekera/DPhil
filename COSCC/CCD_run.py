@@ -4,7 +4,8 @@ import CC
 from pyscf import cc, mp
 import pickle
 
-with open("CCDEquations.pkl", 'rb') as f:
+#with open("CCDEquations.pkl", 'rb') as f:
+with open("collectedCCDEquations.pkl", 'rb') as f:
     up = pickle.Unpickler(f)
     d = up.load()
     energyEquation = d["energyEquation"]
@@ -86,7 +87,17 @@ t5 = time()
 print("Time for MP2 calculation:", t5 - t7)
 print(contractTensorSum(energyEquation))
 print(t2Tensor.array)
-
-CC.convergeDoublesAmplitudes(t2Tensor, energyEquation, doublesAmplitudeEquation, fockTensor)
+t8 = time()
+CC.convergeDoublesAmplitudes(t2Tensor, energyEquation, doublesAmplitudeEquation, fockTensor, biorthogonal=True)
 t2 = time()
-print("Time for CCD calculation:", t2 - t5)
+print("Time for CCD calculation:", t2 - t8)
+
+#print("CCD with collected equations")
+#collectedEnergyEquation = energyEquation.collectIsomorphicTerms()
+#collectedDoublesAmplitudeEquation = doublesAmplitudeEquation.collectIsomorphicTerms()
+#print(collectedEnergyEquation)
+#print(collectedDoublesAmplitudeEquation)
+#t3 = time()
+#CC.convergeCollectedDoublesAmplitudes(t2Tensor, collectedEnergyEquation, collectedDoublesAmplitudeEquation, fockTensor)
+#t4 = time()
+#print("Time for CCD calculation:", t4 - t3)

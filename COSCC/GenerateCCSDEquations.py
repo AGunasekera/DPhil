@@ -19,11 +19,13 @@ energyEquation = CC.getEnergyEquation(BCH)
 t1 = time()
 print("Time to find energy equation:", t1 - t0)
 print("number of terms:", len(energyEquation.summandList))
-singlesAmplitudeEquation = CC.getAmplitudeEquation(BCH, 1)
+#singlesAmplitudeEquation = CC.getAmplitudeEquation(BCH, 1)
+singlesAmplitudeEquation = CC.getSpinFreeSinglesEquation(BCH)
 t2 = time()
 print("Time to find singles amplitude equation:", t2 - t1)
 print("number of terms:", len(singlesAmplitudeEquation.summandList))
-doublesAmplitudeEquation = CC.getAmplitudeEquation(BCH, 2)
+#doublesAmplitudeEquation = CC.getAmplitudeEquation(BCH, 2)
+doublesAmplitudeEquation = CC.getBiorthogonalSpinFreeDoublesEquation(BCH)
 #for summand in doublesAmplitudeEquation.summandList:
 #    summand.prefactor *= (1. / 2.)
 t3 = time()
@@ -38,7 +40,8 @@ d["fockTensor"] = fockTensor
 d["h2Tensor"] = h2Tensor
 d["t1Tensor"] = t1Tensor
 d["t2Tensor"] = t2Tensor
-with open("CCSDEquations.pkl", 'wb') as f:
+#with open("collectedCCSDEquations.pkl", 'wb') as f:
+with open("collectedCCSDEquations.pkl", 'wb') as f:
     p = pickle.Pickler(f)
     p.dump(d)
 

@@ -4,7 +4,8 @@ import CC
 from pyscf import cc, mp
 import pickle
 
-with open("CCSDEquations.pkl", 'rb') as f:
+#with open("CCSDEquations.pkl", 'rb') as f:
+with open("collectedCCSDEquations.pkl", 'rb') as f:
     up = pickle.Unpickler(f)
     d = up.load()
     energyEquation = d["energyEquation"]
@@ -23,7 +24,7 @@ H2sep = 1.605 * bohr
 
 mol = gto.Mole()
 mol.verbose = 1
-mol.atom = 'Be 0 0 0'
+mol.atom = 'Ne 0 0 0'
 #mol.basis = 'sto-3g'
 #mol.atom = 'H 0 0 0; H 0 0 ' + str(H2sep)
 mol.basis = '6-31g'
@@ -92,6 +93,6 @@ print("Time for MP2 calculation:", t5 - t7)
 print(contractTensorSum(energyEquation))
 print(t2Tensor.array)
 
-CC.convergeCCSDAmplitudes(t1Tensor,t2Tensor, energyEquation, singlesAmplitudeEquation, doublesAmplitudeEquation, fockTensor)
+CC.convergeCCSDAmplitudes(t1Tensor,t2Tensor, energyEquation, singlesAmplitudeEquation, doublesAmplitudeEquation, fockTensor, biorthogonal=True)
 t2 = time()
 print("Time for CCSD calculation:", t2 - t5)
